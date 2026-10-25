@@ -78,14 +78,12 @@ footer{margin-top:12px;font-size:11.5px;color:var(--dim);line-height:1.8}
 <div id="introCard">
 <h2>LAYER <span class="z">ZERO</span> <span style="font-size:15px;color:#39ff6a">v3</span></h2>
 <p class="small">テキストコマンド・アドベンチャー　v3 ―レトロ編―</p>
-<p>雨の夜。ハッカーのレンは、差出人不明のメールを受け取る。<br>
-――この世界は作られた仮想現実で、人々は自ら望んで眠っている。</p>
-<p>目的はひとつ。<b>最後に WAKE（目覚める）か SLEEP（眠り続ける）かを選ぶこと。</b><br>
-そして仲間全員――NOAH、ミオ、サチ――を、自分と同じ選択へ導くこと。<br>
-各人には WAKE / SLEEP への「傾き」があり、残り3日間、限られた時間の中で対話し、記録を見せ、ときに世界へ干渉して、オセロのように意見を反転させていく。</p>
-<p class="small">画面は往年のテキストアドベンチャーへのオマージュ。緑モノクロの網点画と、世界の綻びに連動するグリッチ表現で描きます。<br>
-コマンド例：「周りを見る」「メールを読む」「観測室へ行く」「NOAHと話す」「発電機を直す」「&gt; rain.stop」<br>
-分からなくなったら「ヘルプ」、詰まったら「考える」。序章（導入）は約5分、本編は約20分です。</p>
+<p>午前2時14分。雨。<br>
+フリーランスのハッカー、レンのもとに、差出人のいないメールが届く。</p>
+<p>「お前の世界の雨は、3.2秒でループしている」<br>
+窓の外を見たとき、彼の信じていた世界は、静かに崩れ始めた。</p>
+<p class="small">コマンド例：「周りを見る」「メールを読む」「窓を見る」<br>
+分からなくなったら「ヘルプ」と入力してください。</p>
 <button id="startBtn">ゲームスタート</button>
 </div>
 </div>
@@ -121,7 +119,7 @@ footer{margin-top:12px;font-size:11.5px;color:var(--dim);line-height:1.8}
 <div class="sideHead">― もちもの ―</div>
 <ul id="invList"><li>（なし）</li></ul>
 
-<div class="sideNote">■の数が傾きの強さ。明るい緑＝ WAKE（目覚め）側、淡い緑＝ SLEEP（眠り）側。数値は表示しません（正確な資源量は「持ち物」で確認できます）。レンの傾きは行動履歴の目安で、最後の選択はあなたが決めます。</div>
+<div class="sideNote">■が多いほど、その方向への傾きが強い。明るい緑＝ WAKE（目覚め）側、淡い緑＝ SLEEP（眠り）側。資源の正確な量は「持ち物」で確認できます。</div>
 </aside>
 </div>
 
@@ -418,7 +416,7 @@ mail2:
 　目覚めるなら WAKE 。この世界で眠り続けるなら SLEEP 。
 　どちらも間違いじゃない。それが、この問いの残酷なところだ」
 
-（コマンドに WAKE と入力してください。SLEEP の結末は、物語の最後で回収されます）`,
+（WAKE と入力してください）`,
 sleepRefuse:
 `NOAH「その答えは、今ここで出すものじゃない。
 　お前はまだ、この世界の“外”も“中”も知らない。
@@ -438,12 +436,9 @@ transition:
 だが、自分の答えだけでは足りない。
 全員がバラバラの結論のままでは、世界はどちらにも進めないのだ。
 
-【目的】3日間で NOAH・ミオ・サチ 全員を、自分の選ぶ結論（WAKE か SLEEP）と同じ側へ導くこと。
-【時間】行動するたびに時間枠（朝→昼→夕→夜）が進みます。「観測ログを見る」で固定イベントを確認できます（時間は進みません）。
-【資源】ダイブはコロニー電力を消費します。発電所で「発電機を直す」と回復できます。
-【干渉】レイヤー内では「> rain.stop」のようなコンソールコマンドが使えますが、検知リスクが上がります。100に達するとフィクサーが来て、時間枠を1つ失います。
+ひとりひとりの言葉に耳を澄まし、ときに事実を突きつけてでも、答えをひとつにしなければならない。
 
-まずは「観測ログを見る」からどうぞ。`
+――コロニーの広場は、相変わらず寒かった。`
 };
 
 // ===================== 序章の処理 =====================
@@ -517,10 +512,10 @@ function startMain(){
 const SCHEDULE = {
   1: ["発電所でミオが発電機の不調を見ている", "観測室でNOAHが「家族の記録」を解析中", "レイヤーの公園で、サチが娘と過ごしている", "広場でミオが一人、夜空を見上げている"],
   2: ["観測室：「家族の記録」の解析が完了する", "レイヤーの公園で、サチが娘と“図書館ごっこ”をしている", "観測室：「娘の時間データ」の解析が完了する", "システム側の動きが活発化。フィクサーの影が近い"],
-  3: ["最後の調整の日。各自がそれぞれの場所にいる", "レイヤーの公園で、サチと娘の“最後の午後”", "観測室でNOAHが最終観測を行っている", "夜が終わると、図書館への扉が開く（終章）"]
+  3: ["最後の調整の日。各自がそれぞれの場所にいる", "レイヤーの公園で、サチが娘と穏やかに過ごしている", "観測室でNOAHが最終観測を行っている", "夜が終わると、図書館への扉が開く"]
 };
 function showSchedule(){
-  let t = "【NOAHの観測ログ ― 固定イベント】\n";
+  let t = "【NOAHの観測ログ】\n";
   for(let d = 1; d <= 3; d++){
     for(let s = 0; s < 4; s++){
       const mark = (d === S.day && s === S.slot) ? "▶" : "　";
@@ -564,7 +559,7 @@ function openMenu(who){
   if(who === "noah"){
     opts.push({ label:"目覚めることの意味を語る（WAKE側）", kw:["目覚","wake","意味"], run(){ return talkShift("noah", 1, "w"); }, avail: !usedW });
     opts.push({ label:"家族の幸せも“選ぶ”ことだと語る（SLEEP側）", kw:["幸せ","sleep","眠"], run(){
-      if(!S.keyDone.noah){ out("NOAH「……家族の話はするな。今はその時じゃない」\n固い。何か決定的な事実がないと、この男はSLEEP側には1ミリも動かない。", "noah"); return false; }
+      if(!S.keyDone.noah){ out("NOAH「……家族の話はするな。今はその時じゃない」\nNOAHは耳を閉ざした。家族の話は、今の彼にはまだ重すぎるようだ。", "noah"); return false; }
       return talkShift("noah", -1, "s"); }, avail: !usedS });
     if(S.items.includes("familyrec") && !S.keyDone.noah)
       opts.push({ label:"「家族の記録」を見せる", kw:["記録","見せ","家族"], run(){ return keyNoah(); } });
@@ -579,7 +574,7 @@ function openMenu(who){
   }
   if(who === "sachi"){
     opts.push({ label:"真実を知る権利について語る（WAKE側）", kw:["真実","wake","権利"], run(){
-      if(!S.keyDone.sachi){ out("サチ「真実、真実って……。あの子がここにいる。それが私の真実なの」\n固い。娘に関する決定的な何かがないと、サチはWAKE側には動かない。", "noah"); return false; }
+      if(!S.keyDone.sachi){ out("サチ「真実、真実って……。あの子がここにいる。それが私の真実なの」\nサチは首を振った。娘のいる暮らしを疑わせる言葉は、今の彼女には届かない。", "noah"); return false; }
       return talkShift("sachi", 1, "w"); }, avail: !usedW });
     opts.push({ label:"娘との暮らしの話を聞く（SLEEP側）", kw:["娘","sleep","眠","暮らし"], run(){ return talkShift("sachi", -1, "s"); }, avail: !usedS });
     if(S.items.includes("daughterrec") && !S.keyDone.sachi)
@@ -783,13 +778,12 @@ function consoleCmd(s){
 function mainHint(){
   const m = S.meters;
   const off = [];
-  if(!S.keyDone.noah) off.push("NOAHの鍵：「家族の記録」（2日目・観測室）を見せる");
-  if(!S.keyDone.mio) off.push("ミオの鍵：発電所で「ダイブに誘う」（電力30）");
-  if(!S.keyDone.sachi) off.push("サチの鍵：「娘の記録」（2日目夕方・観測室）を公園で見せる");
-  let t = "現在の傾き：NOAH「" + stageWord(m.noah) + "」 ミオ「" + stageWord(m.mio) + "」 サチ「" + stageWord(m.sachi) + "」\n";
-  t += "全員が同じ側（全員が+側＝WAKE／全員が−側＝SLEEP）にそろえば、終章でその結論を選べます。\n";
-  if(off.length) t += "まだ起きていない鍵イベント：\n・" + off.join("\n・");
-  else t += "鍵イベントはすべて起きた。あとは毎日の対話で微調整しよう。固い相手（NOAH／サチ）は鍵なしには逆側へ動きません。";
+  if(!S.keyDone.noah) off.push("NOAHの心を動かすのは、言葉より、家族に何があったかという“事実”だろう。観測室で解析中の「家族の記録」が、それになるはずだ");
+  if(!S.keyDone.mio) off.push("ミオはレイヤーの“中”をまだ知らない。一度ダイブさせれば、彼女の中に新しい答えが生まれるかもしれない");
+  if(!S.keyDone.sachi) off.push("サチの答えは、娘と深く結びついている。娘のデータの“時間”に、何かがある。解析が終わるのを待とう");
+  let t = "（レンの思考メモ）\n今の皆の気持ち：NOAHは「" + stageWord(m.noah) + "」、ミオは「" + stageWord(m.mio) + "」、サチは「" + stageWord(m.sachi) + "」。\n";
+  if(off.length) t += "\n・" + off.join("\n・") + "\n\n言葉で動かせる心と、事実でしか動かない心がある。残り時間を、間違えないように。";
+  else t += "\n三人とも、自分の答えと向き合った。あとは、言葉を尽くすだけだ。";
   out(t, "sys");
 }
 
@@ -809,7 +803,7 @@ function startFinale(){
 司書「では、最後の命令は、お前の言葉で入力（タイプ）しろ。
 　この世界の誰の言葉でもなく、お前の言葉で」
 
-（選択肢はありません。WAKE か SLEEP か、あなた自身の言葉でコマンドを入力してください）`, "noah");
+（WAKE か SLEEP か――最後のコマンドは、あなた自身の言葉で入力してください）`, "noah");
   renderMeters();
 }
 // 最終コマンドの分類：'wake' | 'sleep' | null
