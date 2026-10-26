@@ -1052,11 +1052,27 @@ if(typeof module !== "undefined" && module.exports){
     };
     window.visualViewport.addEventListener("resize", onVV);
     window.visualViewport.addEventListener("scroll", onVV);
+    window.addEventListener("resize", onVV);
+    let pollId = null;
+    const poll = ()=>{
+      if(pollId) clearInterval(pollId);
+      let n = 0;
+      pollId = setInterval(()=>{ onVV(); if(++n > 20 && pollId){ clearInterval(pollId); pollId = null; } }, 100);
+    };
     const cmdEl = document.getElementById("cmd");
     if(cmdEl){
-      const settle = ()=>{ setTimeout(onVV, 60); setTimeout(onVV, 350); };
-      cmdEl.addEventListener("focus", settle);
-      cmdEl.addEventListener("blur", settle);
+      cmdEl.addEventListener("focus", poll);
+      cmdEl.addEventListener("blur", poll);
+    }
+    if(/[?&]dbg=1/.test(location.search || "")){
+      const badge = document.createElement("div");
+      badge.id = "dbgBadge";
+      badge.style.cssText = "position:fixed;left:4px;top:4px;z-index:99;background:#021;color:#7f9;font:11px monospace;padding:4px 6px;border:1px solid #2a5;opacity:.92";
+      document.body.appendChild(badge);
+      setInterval(()=>{
+        const vv = window.visualViewport;
+        badge.textContent = "iH:" + window.innerHeight + " vvH:" + Math.round(vv.height) + " top:" + Math.round(vv.offsetTop || 0) + " scale:" + (vv.scale || 1).toFixed(2) + " " + (document.body.classList.contains("kbd") ? "KBD-ON" : "kbd-off");
+      }, 200);
     }
   }
 })();
