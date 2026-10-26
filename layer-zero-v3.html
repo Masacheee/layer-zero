@@ -16,7 +16,7 @@
 --txt:#c9ffd2; --dim:#6fae7d; --acc:#39ff6a; --acc2:#2ecc5c; --sleep:#8fc79b;
 --serif:"Hiragino Mincho ProN","Hiragino Mincho Pro","YuMincho","Yu Mincho","Noto Serif JP","MS PMincho",serif;
 }
-*{box-sizing:border-box}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--serif);overflow:hidden}
 #wrap{max-width:1180px;margin:0 auto;padding:12px;height:100dvh;box-sizing:border-box;display:flex;flex-direction:column;}
@@ -65,13 +65,34 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--serif);ove
 #introCard .small{font-size:12px;color:var(--dim)}
 #startBtn{margin-top:14px;background:var(--acc);color:#031007;border:none;font-family:var(--serif);font-weight:bold;font-size:16px;padding:12px 26px;cursor:pointer;letter-spacing:2px}
 .hidden{display:none!important}
+#statusBar{display:none}
+#sheetBackdrop{display:none}
 @media (max-width:760px){
   #mainRow{flex-direction:column}
-  #side{width:auto;border-left:none;border-top:1px solid var(--line);max-height:34%}
   #leftCol{flex:1;min-height:0}
-  #stage{flex:1 1 0;min-height:0}
-  #log{flex:1 1 0;min-height:0;font-size:14.5px}
-  #logo{font-size:32px}
+  #stage{flex:none;height:22dvh;min-height:0}
+  #log{flex:1 1 0;min-height:0;font-size:14.5px;padding:12px 14px}
+  #logo{font-size:30px}
+  /* ステータスバー（日時・検知・電力のみ常時表示、タップで詳細シート） */
+  #statusBar{display:flex;gap:14px;align-items:center;border-top:1px solid var(--line2);padding:8px 12px;font-family:"Courier New",monospace;font-size:13px;color:var(--txt);background:#000;cursor:pointer;white-space:nowrap;overflow:hidden}
+  #statusBar .sbLab{color:var(--dim);font-size:11px;margin-right:4px}
+  #statusBar .sbBlocks{color:var(--acc);letter-spacing:1px}
+  #statusBar .sbBlocks.riskHi{color:#eaffea;font-weight:bold;text-shadow:0 0 7px rgba(57,255,106,.8)}
+  #sbHint{margin-left:auto;color:var(--dim);font-size:11px;font-family:var(--serif)}
+  /* サイドバー＝ボトムシート */
+  #side{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-height:74dvh;z-index:30;border-left:none;border-top:2px solid var(--acc);padding:16px 18px calc(16px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .25s ease;box-shadow:0 -8px 30px rgba(0,0,0,.8)}
+  body.sheet-open #side{transform:translateY(0)}
+  #sheetBackdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:25}
+  body.sheet-open #sheetBackdrop{display:block}
+  /* キーボード表示中はイラストを畳む */
+  body.kbd #stage{display:none}
+  /* 入力まわり：タップ領域44px以上、チップは横スクロール1行 */
+  #chips{flex-wrap:nowrap;overflow-x:auto;padding:2px 12px 12px;-webkit-overflow-scrolling:touch}
+  .chip{flex:none;display:flex;align-items:center;min-height:44px;padding:8px 14px;font-size:13px}
+  #send{min-height:44px;padding:9px 20px}
+  #cmd{font-size:16px}
+  #intro{padding:12px}
+  #introCard{padding:20px}
 }
 </style>
 </head>
@@ -95,6 +116,7 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--serif);ove
 <div id="leftCol">
 <div id="stage"><img id="scene" src="" alt="scene"></div>
 <div id="log"></div>
+<div id="statusBar"><span id="sbTime">――</span><span><span class="sbLab">検知</span><span class="sbBlocks" id="sbRisk">――</span></span><span><span class="sbLab">電力</span><span class="sbBlocks" id="sbPower">――</span></span><span id="sbHint">詳細 ▲</span></div>
 <div id="inputRow">
 <span id="prompt">&gt;</span>
 <input id="cmd" type="text" placeholder="コマンドを入力（例：周りを見る）" autocomplete="off">
@@ -123,6 +145,7 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--serif);ove
 
 <div class="sideNote">■が多いほど、その方向への傾きが強い。明るい緑＝ WAKE（目覚め）側、淡い緑＝ SLEEP（眠り）側。資源の正確な量は「持ち物」で確認できます。</div>
 </aside>
+<div id="sheetBackdrop"></div>
 </div>
 </div>
 
@@ -255,6 +278,14 @@ function renderMeters(){
   if(S.items.includes("daughterrec")) inv.push("娘の記録");
   document.getElementById("invList").innerHTML =
     inv.length ? inv.map(i => "<li>" + i + "</li>").join("") : "<li>（なし）</li>";
+  const sbT = document.getElementById("sbTime");
+  if(sbT){
+    sbT.textContent = document.getElementById("hudTime").textContent;
+    const sbR = document.getElementById("sbRisk");
+    sbR.textContent = document.getElementById("hudRisk").textContent;
+    sbR.className = "sbBlocks" + (document.getElementById("hudRisk").className.includes("riskHi") ? " riskHi" : "");
+    document.getElementById("sbPower").textContent = document.getElementById("hudPower").textContent;
+  }
   renderChips();
 }
 function chipList(){
@@ -996,6 +1027,21 @@ $cmd.addEventListener("keydown", (e)=>{ if(e.key !== "Enter") flushType(); });
 if(typeof module !== "undefined" && module.exports){
   module.exports = { get S(){ return S; }, set S(v){ S = v; }, handleCommand: handleCommand, startGame: startGame, flushType: flushType, classifyFinal: classifyFinal, unifiedSide: unifiedSide, S0: S0 };
 }
+
+/* v3 mobile: ステータスバーで詳細シート開閉／キーボード表示でイラストを畳む */
+(function(){
+  const bar = document.getElementById("statusBar");
+  const bd = document.getElementById("sheetBackdrop");
+  if(bar){ bar.addEventListener("click", ()=>{ document.body.classList.toggle("sheet-open"); }); }
+  if(bd){ bd.addEventListener("click", ()=>{ document.body.classList.remove("sheet-open"); }); }
+  if(window.visualViewport){
+    const onVV = ()=>{
+      const diff = window.innerHeight - window.visualViewport.height;
+      document.body.classList.toggle("kbd", diff > 150);
+    };
+    window.visualViewport.addEventListener("resize", onVV);
+  }
+})();
 </script>
 </body>
 </html>
