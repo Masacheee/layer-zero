@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
 <title>LAYER ZERO v3 ―レトロ編―</title>
 <meta name="description" content="テキストコマンド式アドベンチャー『LAYER ZERO』v3 ―レトロ編―。緑モノクロの網点画とグリッチ表現で描く、全員を同じ選択へ導くゲーム。ブラウザでそのまま遊べます。">
 <meta property="og:title" content="LAYER ZERO v3 ―レトロ編―">
@@ -84,8 +84,10 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--serif);ove
   body.sheet-open #side{transform:translateY(0)}
   #sheetBackdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:25}
   body.sheet-open #sheetBackdrop{display:block}
-  /* キーボード表示中はイラストを畳む */
+  /* キーボード表示中はイラストとチップを畳み、アプリ全体を見えている高さに収める */
   body.kbd #stage{display:none}
+  body.kbd #chips{display:none}
+  body.kbd #wrap{height:var(--vvh,100dvh)}
   /* 入力まわり：タップ領域44px以上、チップは横スクロール1行 */
   #chips{flex-wrap:nowrap;overflow-x:auto;padding:2px 12px 12px;-webkit-overflow-scrolling:touch}
   .chip{flex:none;display:flex;align-items:center;min-height:44px;padding:8px 14px;font-size:13px}
@@ -1035,11 +1037,19 @@ if(typeof module !== "undefined" && module.exports){
   if(bar){ bar.addEventListener("click", ()=>{ document.body.classList.toggle("sheet-open"); }); }
   if(bd){ bd.addEventListener("click", ()=>{ document.body.classList.remove("sheet-open"); }); }
   if(window.visualViewport){
+    const root = document.documentElement || document.body;
     const onVV = ()=>{
-      const diff = window.innerHeight - window.visualViewport.height;
-      document.body.classList.toggle("kbd", diff > 150);
+      const vv = window.visualViewport;
+      const diff = window.innerHeight - vv.height;
+      const open = diff > 150;
+      document.body.classList.toggle("kbd", open);
+      if(root && root.style && root.style.setProperty){
+        root.style.setProperty("--vvh", vv.height + "px");
+      }
+      if(open){ window.scrollTo(0, 0); const lg = document.getElementById("log"); if(lg) lg.scrollTop = lg.scrollHeight; }
     };
     window.visualViewport.addEventListener("resize", onVV);
+    window.visualViewport.addEventListener("scroll", onVV);
   }
 })();
 </script>
