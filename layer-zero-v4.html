@@ -260,7 +260,7 @@ function auInit(){
   AU.bgmGain = ctx.createGain(); AU.bgmGain.gain.value = 0.15; AU.bgmGain.connect(AU.master);
   AU.seGain  = ctx.createGain(); AU.seGain.gain.value  = 0.40; AU.seGain.connect(AU.master);
   AU.drmGain = ctx.createGain(); AU.drmGain.gain.value = 0.50; AU.drmGain.connect(AU.master);
-  AU.rainGain = ctx.createGain(); AU.rainGain.gain.value = 0.04; AU.rainGain.connect(AU.master);
+  AU.rainGain = ctx.createGain(); AU.rainGain.gain.value = 0.16; AU.rainGain.connect(AU.master);
   // ビニールノイズ／SE 共用のホワイトノイズバッファ（2秒）
   const len = ctx.sampleRate * 2;
   AU.noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -546,7 +546,7 @@ function auPianoNote(freq, t, vol, dur){
 // ===================== 雨音アンビエント（開始から常時） =====================
 // 基底層：専用バッファ（6秒）のノイズをローパス620Hzした「サーッ」という音を
 // ループ再生し、音量のうねりを周期3.2秒の LFO で付ける
-// （作中のモチーフ「雨の3.2秒ループ」への目配せ）。バスは rainGain（0.04）。
+// （作中のモチーフ「雨の3.2秒ループ」への目配せ）。バスは rainGain（0.16）。
 function auStartRain(){
   const ctx = AU.ctx;
   const len = ctx.sampleRate * 6;
@@ -555,7 +555,7 @@ function auStartRain(){
   for(let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
   const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
   src.playbackRate.value = 0.85;
-  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 620; lp.Q.value = 0.2;
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 700; lp.Q.value = 0.2;
   const swell = ctx.createGain(); swell.gain.value = 0.62;
   src.connect(lp); lp.connect(swell); swell.connect(AU.rainGain);
   src.start();
@@ -575,7 +575,7 @@ function auRainDrop(t){
   bp.frequency.value = 1300 + Math.random() * 1100; bp.Q.value = 6;
   const g = ctx.createGain();
   const d = 0.03 + Math.random() * 0.03;
-  g.gain.setValueAtTime(0.10 + Math.random() * 0.10, t);
+  g.gain.setValueAtTime(0.16 + Math.random() * 0.12, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + d);
   src.connect(bp); bp.connect(g); g.connect(AU.rainGain);
   src.start(t, Math.random() * 1.6, d + 0.03);
