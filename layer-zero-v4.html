@@ -230,9 +230,10 @@ function flushType(){
 // AudioContext は「ゲームスタート」押下（ユーザー操作）を契機に生成し、
 // それ以前は一切生成・再生しない（自動再生ポリシー準拠）。
 // 構成：Fmaj7 → Em7 → Dm7 → Cmaj7 のコードパッド（各4秒、継ぎ目なくループ）
-//       ＋ コードごとのルート音ベース ＋ ビニールノイズ（常時ヒス＋ランダムなパチパチ）。
+//       ＋ コードごとのルート音ベース ＋ ビニールノイズ（常時ヒス＋ランダムなパチパチ）
+//       ＋ LoFiパーカッション（9小節目から：キック／スネア／シェイカー、ドラムバス 0.5）。
 const AU = {
-  ctx: null, master: null, bgmGain: null, seGain: null, noiseBuf: null,
+  ctx: null, master: null, bgmGain: null, seGain: null, drmGain: null, noiseBuf: null,
   on: true, started: false, timer: null, step: 0, nextTime: 0
 };
 const BGM_CHORDS = [
@@ -249,12 +250,13 @@ function auInit(){
   if(!AC) return;
   const ctx = new AC();
   AU.ctx = ctx;
-  // マスター（ミュート切替用）→ BGMバス（基礎レベル 0.15）／SEバス
+  // マスター（ミュート切替用）→ BGMバス（基礎レベル 0.15）／SEバス／ドラムバス（0.5）
   AU.master = ctx.createGain();
   AU.master.gain.value = AU.on ? 1 : 0;
   AU.master.connect(ctx.destination);
   AU.bgmGain = ctx.createGain(); AU.bgmGain.gain.value = 0.15; AU.bgmGain.connect(AU.master);
   AU.seGain  = ctx.createGain(); AU.seGain.gain.value  = 0.40; AU.seGain.connect(AU.master);
+  AU.drmGain = ctx.createGain(); AU.drmGain.gain.value = 0.50; AU.drmGain.connect(AU.master);
   // ビニールノイズ／SE 共用のホワイトノイズバッファ（2秒）
   const len = ctx.sampleRate * 2;
   AU.noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -274,6 +276,8 @@ function auSchedule(){
   while(AU.nextTime < ahead){
     const ch = BGM_CHORDS[AU.step % BGM_CHORDS.length];
     auPlayChord(ch, AU.nextTime, BGM_CHORD_LEN);
+    // パーカッションは9小節目（step 8）から入り、そのまま入り続ける
+    if(AU.step >= 8) auPlayDrums(AU.nextTime);
     // ビニールのパチパチをコード内にランダム配置
     const pops = 2 + Math.floor(Math.random() * 4);
     for(let i = 0; i < pops; i++){
@@ -337,6 +341,70 @@ function auPop(t, vol){
   src.connect(hp); hp.connect(g); g.connect(AU.bgmGain);
   src.start(t, Math.random() * 1.5, d + 0.05);
   src.stop(t + d + 0.05);
+}
+
+// ===================== LoFiパーカッション（9小節目から） =====================
+// 1コード＝1小節（4秒＝4拍、1拍＝1秒）。パターンは小節頭 t0 からの相対時刻で組む。
+// すべて WebAudio 合成（外部サンプルなし）、ドラムバス（AU.drmGain = 0.5）経由で薄く重ねる。
+function auPlayDrums(t0){
+  // キック：1拍・3拍 ＋ 3拍半にゴースト1発
+  auKick(t0 + 0.0, 0.26);
+  auKick(t0 + 2.0, 0.26);
+  auKick(t0 + 3.5, 0.10);
+  // スネア：2拍・4拍
+  auSnare(t0 + 1.0, 0.13);
+  auSnare(t0 + 3.0, 0.13);
+  // シェイカー：8分音符。裏拍（奇数番）を少し遅らせるスウィング付き、裏拍中心に強め
+  const SWING = 0.07;
+  for(let i = 0; i < 8; i++){
+    const off = (i % 2 === 1);
+    auShaker(t0 + i * 0.5 + (off ? SWING : 0), off ? 0.055 : 0.028);
+  }
+}
+
+// バスドラム：サイン波のピッチを 150Hz→48Hz へ急降下させ、ローパスで丸く。
+// アタックは 4ms のリニアランプで柔らかくする（LoFi の鈍いキック）。
+function auKick(t, vol){
+  const ctx = AU.ctx;
+  const o = ctx.createOscillator(); o.type = "sine";
+  o.frequency.setValueAtTime(150, t);
+  o.frequency.exponentialRampToValueAtTime(48, t + 0.09);
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 420;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.30);
+  o.connect(lp); lp.connect(g); g.connect(AU.drmGain);
+  o.start(t); o.stop(t + 0.34);
+}
+
+// スネア：ノイズバースト＋バンドパス（約1.8kHz）で「チッ」という軽い音
+function auSnare(t, vol){
+  const ctx = AU.ctx;
+  const src = ctx.createBufferSource(); src.buffer = AU.noiseBuf;
+  src.playbackRate.value = 0.9 + Math.random() * 0.2;
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1800; bp.Q.value = 0.8;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+  src.connect(bp); bp.connect(g); g.connect(AU.drmGain);
+  src.start(t, Math.random() * 1.5, 0.16);
+  src.stop(t + 0.17);
+}
+
+// シェイカー／ハット：高域ノイズの短いティック
+function auShaker(t, vol){
+  const ctx = AU.ctx;
+  const src = ctx.createBufferSource(); src.buffer = AU.noiseBuf;
+  src.playbackRate.value = 1.4 + Math.random() * 0.3;
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 6800;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
+  src.connect(hp); hp.connect(g); g.connect(AU.drmGain);
+  src.start(t, Math.random() * 1.6, 0.08);
+  src.stop(t + 0.09);
 }
 
 // タイピングSE：タイプライターの刻みに同期する短い打鍵クリック。
