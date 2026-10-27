@@ -66,6 +66,8 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--serif);ove
 #startBtn{margin-top:14px;background:var(--acc);color:#031007;border:none;font-family:var(--serif);font-weight:bold;font-size:16px;padding:12px 26px;cursor:pointer;letter-spacing:2px}
 .hidden{display:none!important}
 #autoBadge{position:fixed;top:10px;right:10px;z-index:60;padding:5px 12px;border:1px solid var(--acc);color:var(--acc);background:rgba(0,16,6,.88);font-size:12.5px;letter-spacing:2px;font-family:var(--serif)}
+#sndBtn{margin-top:2px;width:100%;background:transparent;border:1px solid var(--acc2);color:var(--acc);font-family:var(--serif);font-size:12.5px;letter-spacing:2px;padding:7px 10px;cursor:pointer}
+#sndBtn:hover{background:rgba(57,255,106,.12)}
 #statusBar{display:none}
 #sheetBackdrop{display:none}
 @media (max-width:760px){
@@ -149,6 +151,8 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--serif);ove
 <ul id="invList"><li>（なし）</li></ul>
 
 <div class="sideNote">■が多いほど、その方向への傾きが強い。明るい緑＝ WAKE（目覚め）側、淡い緑＝ SLEEP（眠り）側。資源の正確な量は「持ち物」で確認できます。</div>
+<div class="sideHead">― サウンド ―</div>
+<button id="sndBtn" type="button">♪ サウンド：ON</button>
 </aside>
 <div id="sheetBackdrop"></div>
 </div>
@@ -205,6 +209,7 @@ function pumpType(){
 function stepType(){
   typePos += 2;
   typeDiv.textContent = typeFull.slice(0, typePos);
+  typeSE(typeFull.slice(typePos - 2, typePos));
   $log.scrollTop = $log.scrollHeight;
   if(typePos >= typeFull.length){ clearInterval(typeTimer); typeTimer = null; typeDiv = null; pumpType(); }
 }
@@ -220,6 +225,156 @@ function flushType(){
   }
   $log.scrollTop = $log.scrollHeight;
 }
+// ===================== サウンド（LoFi BGM＋タイピングSE） =====================
+// BGM は WebAudio によるプロシージャル生成（外部音源ファイルなし）。
+// AudioContext は「ゲームスタート」押下（ユーザー操作）を契機に生成し、
+// それ以前は一切生成・再生しない（自動再生ポリシー準拠）。
+// 構成：Fmaj7 → Em7 → Dm7 → Cmaj7 のコードパッド（各4秒、継ぎ目なくループ）
+//       ＋ コードごとのルート音ベース ＋ ビニールノイズ（常時ヒス＋ランダムなパチパチ）。
+const AU = {
+  ctx: null, master: null, bgmGain: null, seGain: null, noiseBuf: null,
+  on: true, started: false, timer: null, step: 0, nextTime: 0
+};
+const BGM_CHORDS = [
+  { root: 87.31, notes: [174.61, 220.00, 261.63, 329.63] }, // Fmaj7: F2 / F3 A3 C4 E4
+  { root: 82.41, notes: [164.81, 196.00, 246.94, 293.66] }, // Em7 : E2 / E3 G3 B3 D4
+  { root: 73.42, notes: [146.83, 174.61, 220.00, 261.63] }, // Dm7 : D2 / D3 F3 A3 C4
+  { root: 65.41, notes: [130.81, 164.81, 196.00, 246.94] }  // Cmaj7: C2 / C3 E3 G3 B3
+];
+const BGM_CHORD_LEN = 4.0; // 1コードあたりの秒数
+
+function auInit(){
+  if(AU.ctx){ if(AU.ctx.state === "suspended") AU.ctx.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return;
+  const ctx = new AC();
+  AU.ctx = ctx;
+  // マスター（ミュート切替用）→ BGMバス（基礎レベル 0.15）／SEバス
+  AU.master = ctx.createGain();
+  AU.master.gain.value = AU.on ? 1 : 0;
+  AU.master.connect(ctx.destination);
+  AU.bgmGain = ctx.createGain(); AU.bgmGain.gain.value = 0.15; AU.bgmGain.connect(AU.master);
+  AU.seGain  = ctx.createGain(); AU.seGain.gain.value  = 0.40; AU.seGain.connect(AU.master);
+  // ビニールノイズ／SE 共用のホワイトノイズバッファ（2秒）
+  const len = ctx.sampleRate * 2;
+  AU.noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = AU.noiseBuf.getChannelData(0);
+  for(let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  auStartVinyl();
+  AU.step = 0;
+  AU.nextTime = ctx.currentTime + 0.1;
+  AU.timer = setInterval(auSchedule, 250);
+  AU.started = true;
+}
+
+// 先読みスケジューラ：少し先までコードを予約し、ループの継ぎ目をなくす
+function auSchedule(){
+  if(!AU.ctx) return;
+  const ahead = AU.ctx.currentTime + 0.8;
+  while(AU.nextTime < ahead){
+    const ch = BGM_CHORDS[AU.step % BGM_CHORDS.length];
+    auPlayChord(ch, AU.nextTime, BGM_CHORD_LEN);
+    // ビニールのパチパチをコード内にランダム配置
+    const pops = 2 + Math.floor(Math.random() * 4);
+    for(let i = 0; i < pops; i++){
+      auPop(AU.nextTime + Math.random() * BGM_CHORD_LEN, 0.03 + Math.random() * 0.05);
+    }
+    AU.step++;
+    AU.nextTime += BGM_CHORD_LEN;
+  }
+}
+
+function auPlayChord(ch, t, dur){
+  const ctx = AU.ctx;
+  // --- コードパッド：構成音ごとに少しデチューンした三角波×2、ローパス、遅いアタック ---
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 850; lp.Q.value = 0.3;
+  const pg = ctx.createGain(); pg.gain.value = 0;
+  lp.connect(pg); pg.connect(AU.bgmGain);
+  pg.gain.setValueAtTime(0, t);
+  pg.gain.linearRampToValueAtTime(0.11, t + 1.6);          // ゆっくり立ち上がる
+  pg.gain.setValueAtTime(0.11, t + dur - 0.4);
+  pg.gain.linearRampToValueAtTime(0, t + dur + 1.2);      // 次コードへクロスフェード気味に消える
+  for(const f of ch.notes){
+    for(const det of [-6, 5]){
+      const o = ctx.createOscillator();
+      o.type = "triangle"; o.frequency.value = f;
+      o.detune.value = det + (Math.random() * 4 - 2);
+      o.connect(lp); o.start(t); o.stop(t + dur + 1.4);
+    }
+  }
+  // --- ベース：ルート音のサイン波、ローパスで柔らかく ---
+  const bo = ctx.createOscillator(); bo.type = "sine"; bo.frequency.value = ch.root;
+  const bf = ctx.createBiquadFilter(); bf.type = "lowpass"; bf.frequency.value = 300;
+  const bg = ctx.createGain(); bg.gain.value = 0;
+  bo.connect(bf); bf.connect(bg); bg.connect(AU.bgmGain);
+  bg.gain.setValueAtTime(0, t);
+  bg.gain.linearRampToValueAtTime(0.30, t + 0.4);
+  bg.gain.setValueAtTime(0.30, t + dur - 0.8);
+  bg.gain.linearRampToValueAtTime(0, t + dur + 0.6);
+  bo.start(t); bo.stop(t + dur + 0.8);
+}
+
+// ビニールノイズ（常時の微かなヒス）：ループ再生＋バンドパス
+function auStartVinyl(){
+  const ctx = AU.ctx;
+  const src = ctx.createBufferSource(); src.buffer = AU.noiseBuf; src.loop = true;
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 3200; bp.Q.value = 0.4;
+  const g = ctx.createGain(); g.gain.value = 0.010;
+  src.connect(bp); bp.connect(g); g.connect(AU.bgmGain);
+  src.start();
+}
+
+// ビニールのパチパチ：ごく短いノイズバースト
+function auPop(t, vol){
+  const ctx = AU.ctx;
+  const src = ctx.createBufferSource(); src.buffer = AU.noiseBuf;
+  src.playbackRate.value = 0.7 + Math.random() * 0.8;
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1200;
+  const g = ctx.createGain();
+  const d = 0.012 + Math.random() * 0.02;
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0008, t + d);
+  src.connect(hp); hp.connect(g); g.connect(AU.bgmGain);
+  src.start(t, Math.random() * 1.5, d + 0.05);
+  src.stop(t + d + 0.05);
+}
+
+// タイピングSE：タイプライターの刻みに同期する短い打鍵クリック。
+// ノイズバースト＋バンドパス（周波数をランダムにずらして単調さを避ける）。
+// 空白のみの刻みでは鳴らさず、45ms 未満の連打はスロットルする。
+// 一括表示（flushType）経路からは呼ばれない。
+let lastSeAt = 0;
+function typeSE(added){
+  if(!AU.ctx || !AU.on) return;
+  if(added && !/[^\s]/.test(added)) return;
+  const now = performance.now();
+  if(now - lastSeAt < 45) return;
+  lastSeAt = now;
+  const ctx = AU.ctx, t = ctx.currentTime;
+  const src = ctx.createBufferSource(); src.buffer = AU.noiseBuf;
+  src.playbackRate.value = 0.9 + Math.random() * 0.5;
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass";
+  bp.frequency.value = 1400 + Math.random() * 1400; bp.Q.value = 1.1;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.5, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+  src.connect(bp); bp.connect(g); g.connect(AU.seGain);
+  src.start(t, Math.random() * 1.8, 0.06);
+  src.stop(t + 0.07);
+}
+
+// ミュート切替（BGM・SE 共通のマスターを絞る）
+function auSetOn(on){
+  AU.on = on;
+  const b = document.getElementById("sndBtn");
+  if(b) b.textContent = on ? "♪ サウンド：ON" : "♪ サウンド：OFF";
+  if(AU.ctx && AU.master){
+    AU.master.gain.setTargetAtTime(on ? 1 : 0, AU.ctx.currentTime, 0.05);
+  }
+}
+const $sndBtn = document.getElementById("sndBtn");
+if($sndBtn) $sndBtn.addEventListener("click", ()=>{ auSetOn(!AU.on); });
+
 function cmdEcho(text){
   const d = document.createElement("div");
   d.className = "cmd";
@@ -1112,6 +1267,7 @@ function stopAutoplay(msg){
 // ===================== 開始 =====================
 function startGame(){
   document.getElementById("intro").classList.add("hidden");
+  auInit();
   S = S0(1);
   setScene("room");
   out(TXT.intro);
@@ -1130,7 +1286,7 @@ $cmd.addEventListener("keydown", (e)=>{ if(e.key !== "Enter") flushType(); });
 
 // Node テスト用エクスポート（ブラウザでは無効）
 if(typeof module !== "undefined" && module.exports){
-  module.exports = { get S(){ return S; }, set S(v){ S = v; }, handleCommand: handleCommand, startGame: startGame, flushType: flushType, classifyFinal: classifyFinal, unifiedSide: unifiedSide, S0: S0 };
+  module.exports = { get S(){ return S; }, set S(v){ S = v; }, handleCommand: handleCommand, startGame: startGame, flushType: flushType, classifyFinal: classifyFinal, unifiedSide: unifiedSide, S0: S0, submitCmd: submitCmd, get AU(){ return AU; }, typeSE: typeSE };
 }
 
 /* v3 mobile: ステータスバーで詳細シート開閉／キーボード表示でイラストを畳む */
