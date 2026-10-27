@@ -584,6 +584,9 @@ function auRainDrop(t){
 
 // タイピングSE：タイプライターの刻みに同期する短い打鍵クリック。
 // ノイズバースト＋バンドパス（周波数をランダムにずらして単調さを避ける）。
+// 2026-10-27 柔らかく調整：帯域を 1400-2800Hz → 900-1500Hz に下げ、ピークを
+// 0.5 → 0.34 に抑制し、低めの「コツ」という胴音（三角波 260-320Hz）を薄く重ねた。
+// 乾いた短さは維持しつつ、耳障りな高域の粒立ちを消す方向。
 // 空白のみの刻みでは鳴らさず、45ms 未満の連打はスロットルする。
 // 一括表示（flushType）経路からは呼ばれない。
 let lastSeAt = 0;
@@ -597,13 +600,21 @@ function typeSE(added){
   const src = ctx.createBufferSource(); src.buffer = AU.noiseBuf;
   src.playbackRate.value = 0.9 + Math.random() * 0.5;
   const bp = ctx.createBiquadFilter(); bp.type = "bandpass";
-  bp.frequency.value = 1400 + Math.random() * 1400; bp.Q.value = 1.1;
+  bp.frequency.value = 900 + Math.random() * 600; bp.Q.value = 1.3;
   const g = ctx.createGain();
-  g.gain.setValueAtTime(0.5, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+  g.gain.setValueAtTime(0.34, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
   src.connect(bp); bp.connect(g); g.connect(AU.seGain);
-  src.start(t, Math.random() * 1.8, 0.06);
-  src.stop(t + 0.07);
+  src.start(t, Math.random() * 1.8, 0.07);
+  src.stop(t + 0.08);
+  // 胴音：柔らかさの芯になる短い低音（強すぎると打鍵感が消えるので薄く）
+  const osc = ctx.createOscillator(); osc.type = "triangle";
+  osc.frequency.value = 260 + Math.random() * 60;
+  const og = ctx.createGain();
+  og.gain.setValueAtTime(0.10, t);
+  og.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+  osc.connect(og); og.connect(AU.seGain);
+  osc.start(t); osc.stop(t + 0.05);
 }
 
 // ミュート切替（BGM・SE 共通のマスターを絞る）
