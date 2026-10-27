@@ -65,6 +65,7 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--serif);ove
 #introCard .small{font-size:12px;color:var(--dim)}
 #startBtn{margin-top:14px;background:var(--acc);color:#031007;border:none;font-family:var(--serif);font-weight:bold;font-size:16px;padding:12px 26px;cursor:pointer;letter-spacing:2px}
 .hidden{display:none!important}
+#autoBadge{position:fixed;top:10px;right:10px;z-index:60;padding:5px 12px;border:1px solid var(--acc);color:var(--acc);background:rgba(0,16,6,.88);font-size:12.5px;letter-spacing:2px;font-family:var(--serif)}
 #statusBar{display:none}
 #sheetBackdrop{display:none}
 @media (max-width:760px){
@@ -114,6 +115,7 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--serif);ove
 </div>
 </div>
 
+<div id="autoBadge" style="display:none"></div>
 <div id="wrap">
 <div id="mainRow">
 <div id="leftCol">
@@ -168,7 +170,7 @@ function S0(cycle){
     phase: "prologue", // prologue | main | finale | lastchoice | end
     ended: null,
     // 序章フラグ
-    terminalSeen:false, mailRead:false, rainSeen:false, drawerOpen:false,
+    terminalSeen:false, mailRead:false, rainSeen:false, drawerOpen:false, unlocked:false,
     hasUSB:false, usbIn:false, logRead:false, photoSeen:false,
     // 本編
     day:1, slot:0, loc:"square",
@@ -293,7 +295,7 @@ function renderMeters(){
 }
 function chipList(){
   if(S.phase === "prologue"){
-    if(!S.mailRead) return ["周りを見る","端末を調べる","メールを読む"];
+    if(!S.mailRead) return S.unlocked ? ["周りを見る","端末を調べる","メールを読む"] : ["周りを見る","端末を調べる","引き出しを開ける","メールを読む"];
     if(!S.rainSeen) return ["窓を見る","雨を見る","引き出しを開ける"];
     if(!S.logRead) return ["引き出しを開ける","USBメモリを取る","USBメモリを挿す","ファイルを読む"];
     return ["WAKE"];
@@ -386,6 +388,15 @@ terminalLook:
 `端末は起動したままだ。仕事のログが流れている。
 通知バッジ： 未読メール 1件。
 （「メールを読む」と入力できます）`,
+lock:
+`端末に触れると、画面が暗転し、パスフレーズの入力欄だけが浮かび上がった。
+寝落ちする前に、ロックをかけていたらしい。
+……パスフレーズ。覚えていない。いや――どこかに書き留めたはずだ。机の引き出しに。`,
+unlock:
+`引き出しのメモの一文が、頭の中で反響した。
+「バックアップは取った。あとは思い出すだけ」
+――思い出す。指が、考えるより先にキーを打っていた。覚えのない文字列が、正確に入力されていく。
+カチリ、と小さな音を立てて、ロックが解けた。`,
 mail1:
 `差出人： NOAH（アドレスなし）
 件名： 雨はループしている
@@ -472,13 +483,22 @@ transition:
 };
 
 // ===================== 序章の処理 =====================
+// 端末のロック解除を試みる。引き出しを開けてメモを見ていれば解除できる。
+// 戻り値：端末操作を続けてよいなら true（ロック画面／解除演出を出した場合は呼び出し側で打ち切る）
+function tryUnlock(){
+  if(S.unlocked) return true;
+  if(S.drawerOpen){ out(TXT.unlock); S.unlocked = true; return true; }
+  out(TXT.lock); S.terminalSeen = true; return false;
+}
 // 戻り値：なし（序章は時間を消費しない）
 function prologueCmd(s){
   if(has(s, ["周り","部屋","室内"]) && has(s, ["見","調べ","確認"])){ out(TXT.room, "sys"); return; }
   if(has(s, ["端末","パソコン","モニター","pc"]) && has(s, ["見","調べ","使","開"])){
+    if(!tryUnlock()) return;
     out(TXT.terminalLook); S.terminalSeen = true; return;
   }
   if(has(s, ["メール","mail"]) && has(s, ["読","見","開"])){
+    if(!tryUnlock()) return;
     out(TXT.mail1, "noah"); S.mailRead = true; return;
   }
   if(has(s, ["窓","雨","外"]) && has(s, ["見","眺","確認","調べ"])){
@@ -500,7 +520,7 @@ function prologueCmd(s){
     return;
   }
   if(has(s, ["usb","メモリ","端末"]) && has(s, ["挿","差","使","接続"])){
-    if(S.hasUSB){ out(TXT.insertOK); S.usbIn = true; }
+    if(S.hasUSB){ if(!tryUnlock()) return; out(TXT.insertOK); S.usbIn = true; }
     else if(S.drawerOpen) out("まずUSBメモリを取る必要がある。");
     else out("何を挿すのか。引き出しを確認してみよう。");
     return;
@@ -523,6 +543,7 @@ function prologueCmd(s){
   out("（序章の手がかり：" + prologueHint() + "）", "sys");
 }
 function prologueHint(){
+    if(!S.unlocked) return S.drawerOpen ? "メモの言葉を思い出して、端末を使ってみよう" : (S.terminalSeen ? "机の引き出しを開けてみよう" : "端末を調べてみよう");
   if(!S.mailRead) return "端末を調べて、メールを読もう";
   if(!S.rainSeen) return "窓の外の雨を、よく見てみよう";
   if(!S.drawerOpen) return "机の引き出しを開けてみよう";
@@ -956,8 +977,9 @@ const HELP_TEXT =
 システム： 考える（ヒント）／持ち物／セーブ／ロード／やり直す`;
 
 // ===================== 入力ディスパッチ =====================
-function submitCmd(raw){
+function submitCmd(raw, fromAuto){
   if(!raw || !String(raw).trim()) return;
+  if(!fromAuto && AP.state === "run") stopAutoplay("手動入力があったため、自動再生を中断しました。");
   flushType();
   cmdEcho(String(raw).trim());
   handleCommand(String(raw));
@@ -966,6 +988,9 @@ function submitCmd(raw){
 }
 function handleCommand(raw){
   const s = normalize(raw);
+  // 自動再生（プレイテスト用裏技）：行き先の回答待ちなら最優先で処理する
+  if(AP.state === "ask"){ apAnswer(s); return; }
+  if(s === "自動再生" || s === "autoplay"){ startAutoplay(); return; }
   // システム系（どのフェーズでも有効）
   if(has(s, ["ヘルプ","help","コマンド一覧"])){ out(HELP_TEXT, "sys"); renderMeters(); return; }
   if(has(s, ["セーブ","save"])){
@@ -1005,6 +1030,83 @@ function handleCommand(raw){
   }
   const cost = mainCmd(s, raw);
   afterAction(!!cost);
+}
+
+
+// ===================== 自動再生（プレイテスト用裏技） =====================
+// 「自動再生」と入力すると行き先（WAKE／SLEEP／その他）を聞き、
+// 既存のコマンド処理へ入力列を一定間隔で流し込んでエンディングまで進める。
+// ゲームロジック自体は流用するだけで、別実装は持たない。
+// 手動でコマンドを入力すると自動再生は解除される（submitCmd 側で判定）。
+const AP = { state:"off", mode:null, queue:[], timer:null, steps:0 };
+const AP_PROLOGUE = ["引き出しを開ける","端末を調べる","メールを読む","窓を見る","USBメモリを取る","USBメモリを挿す","ファイルを読む","WAKE"];
+const AP_SCRIPTS = {
+  // WAKE：NOAHの鍵（家族の記録→真実の言葉）とサチの鍵（娘の記録）をこなし、
+  // レイヤー内で rain.stop と対話でサチを引き上げ、全員WAKEで統一する。
+  // ミオの鍵（ダイブ）は彼女をSLEEP側へ大きく倒すため、WAKEルートではあえて踏まない。
+  wake: AP_PROLOGUE.concat([
+    "観測室へ行く","NOAHと話す","1","休む","休む",
+    "家族の記録を読む","家族の記録を見せる","1","娘の記録を読む","レイヤー入口へ行く",
+    "ダイブする","娘の記録を見せる","> rain.stop","サチと話す","1",
+    "WAKE"
+  ]),
+  // SLEEP：ミオの鍵（ダイブで温かい食卓を知る）、NOAHの鍵（記録→守る言葉）、
+  // サチの鍵（娘の時間の真実を知った上で、それでも眠る）をこなし、全員SLEEPで統一する。
+  sleep: AP_PROLOGUE.concat([
+    "発電所へ行く","ミオと話す","3","観測室へ行く","休む",
+    "家族の記録を読む","家族の記録を見せる","2","娘の記録を読む","レイヤー入口へ行く",
+    "ダイブする","娘の記録を見せる","サチと話す","2","休む",
+    "SLEEP"
+  ]),
+  // その他：統一を目指さず日々をやり過ごし、未統一のまま最終選択→「やめる」で完結させる。
+  other: AP_PROLOGUE.concat([
+    "休む","休む","休む","休む","休む","休む","休む","休む","休む","休む","休む","休む",
+    "WAKE","やめる"
+  ])
+};
+function apBadgeShow(label){
+  const b = document.getElementById("autoBadge");
+  if(b){ b.style.display = ""; b.textContent = "▶ 自動再生中（" + label + "）"; }
+}
+function apBadgeHide(){
+  const b = document.getElementById("autoBadge");
+  if(b) b.style.display = "none";
+}
+function startAutoplay(){
+  if(AP.state !== "off"){ out("自動再生はすでに動いています。", "sys"); return; }
+  AP.state = "ask";
+  out("【自動再生 ― プレイテスト用】\n行き先を選んでください。\n1. WAKE（全員を目覚めさせる）\n2. SLEEP（全員で眠り続ける）\n3. その他（統一を目指さない通常進行）\n（番号か、WAKE／SLEEP／その他 で答えてください）", "sys");
+}
+function apAnswer(s){
+  let mode = null;
+  if(s === "1" || s.includes("wake") || s.includes("目覚")) mode = "wake";
+  else if(s === "2" || s.includes("sleep") || s.includes("眠")) mode = "sleep";
+  else if(s === "3" || s.includes("その他") || s.includes("そのた") || s.includes("ほか") || s.includes("通常")) mode = "other";
+  if(!mode){ out("行き先が分かりませんでした。1（WAKE）／2（SLEEP）／3（その他）で答えてください。", "sys"); return; }
+  AP.mode = mode; AP.state = "run"; AP.steps = 0;
+  AP.queue = AP_SCRIPTS[mode].slice();
+  S = S0(1); setScene("room"); renderMeters();
+  const label = mode === "wake" ? "WAKE" : mode === "sleep" ? "SLEEP" : "その他";
+  apBadgeShow(label);
+  out("【自動再生を開始します： " + label + "】\n（途中で自分でコマンドを入力すると、自動再生は止まります）", "sys");
+  AP.timer = setInterval(apTick, 850);
+}
+function apTick(){
+  if(AP.state !== "run"){ stopAutoplay(); return; }
+  if(S.phase === "end" || AP.queue.length === 0 || AP.steps >= 120){ stopAutoplay(); return; }
+  const cmd = AP.queue.shift();
+  AP.steps++;
+  submitCmd(cmd, true);
+  if(S.phase === "end") stopAutoplay();
+}
+function stopAutoplay(msg){
+  if(AP.timer){ clearInterval(AP.timer); AP.timer = null; }
+  const finished = AP.state === "run" && S.phase === "end";
+  AP.state = "off"; AP.queue = [];
+  apBadgeHide();
+  if(finished) out("【自動再生が終了しました】", "sys");
+  if(msg) out(msg, "sys");
+  renderMeters();
 }
 
 // ===================== 開始 =====================
