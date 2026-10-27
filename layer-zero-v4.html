@@ -230,10 +230,13 @@ function flushType(){
 // AudioContext は「ゲームスタート」押下（ユーザー操作）を契機に生成し、
 // それ以前は一切生成・再生しない（自動再生ポリシー準拠）。
 // 構成：Fmaj7 → Em7 → Dm7 → Cmaj7 のコードパッド（各4秒、継ぎ目なくループ）
-//       ＋ コードごとのルート音ベース ＋ ビニールノイズ（常時ヒス＋ランダムなパチパチ）
-//       ＋ LoFiパーカッション（9小節目から：キック／スネア／シェイカー、ドラムバス 0.5）。
+//       ＋ コードごとのルート音ベース（step<8 のみ）＋ ビニールノイズ（常時ヒス＋ランダムなパチパチ）
+//       ＋ LoFiパーカッション（9小節目から：キック／スネア／シェイカー、ドラムバス 0.5）
+//       ＋ ウッドベース（9小節目から、持続ルート音ベースと置き換え）
+//       ＋ ノイズ交じりのピアノ（13小節目から：伴奏＋静かなメロディ）
+//       ＋ 雨音アンビエント（開始から常時：ローパスノイズ＋水滴、うねり周期3.2秒、雨バス 0.04）。
 const AU = {
-  ctx: null, master: null, bgmGain: null, seGain: null, drmGain: null, noiseBuf: null,
+  ctx: null, master: null, bgmGain: null, seGain: null, drmGain: null, rainGain: null, noiseBuf: null,
   on: true, started: false, timer: null, step: 0, nextTime: 0
 };
 const BGM_CHORDS = [
@@ -250,19 +253,21 @@ function auInit(){
   if(!AC) return;
   const ctx = new AC();
   AU.ctx = ctx;
-  // マスター（ミュート切替用）→ BGMバス（基礎レベル 0.15）／SEバス／ドラムバス（0.5）
+  // マスター（ミュート切替用）→ BGMバス（基礎レベル 0.15）／SEバス／ドラムバス（0.5）／雨バス（0.04）
   AU.master = ctx.createGain();
   AU.master.gain.value = AU.on ? 1 : 0;
   AU.master.connect(ctx.destination);
   AU.bgmGain = ctx.createGain(); AU.bgmGain.gain.value = 0.15; AU.bgmGain.connect(AU.master);
   AU.seGain  = ctx.createGain(); AU.seGain.gain.value  = 0.40; AU.seGain.connect(AU.master);
   AU.drmGain = ctx.createGain(); AU.drmGain.gain.value = 0.50; AU.drmGain.connect(AU.master);
+  AU.rainGain = ctx.createGain(); AU.rainGain.gain.value = 0.04; AU.rainGain.connect(AU.master);
   // ビニールノイズ／SE 共用のホワイトノイズバッファ（2秒）
   const len = ctx.sampleRate * 2;
   AU.noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
   const data = AU.noiseBuf.getChannelData(0);
   for(let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
   auStartVinyl();
+  auStartRain();
   AU.step = 0;
   AU.nextTime = ctx.currentTime + 0.1;
   AU.timer = setInterval(auSchedule, 250);
@@ -275,9 +280,20 @@ function auSchedule(){
   const ahead = AU.ctx.currentTime + 0.8;
   while(AU.nextTime < ahead){
     const ch = BGM_CHORDS[AU.step % BGM_CHORDS.length];
-    auPlayChord(ch, AU.nextTime, BGM_CHORD_LEN);
-    // パーカッションは9小節目（step 8）から入り、そのまま入り続ける
-    if(AU.step >= 8) auPlayDrums(AU.nextTime);
+    // 持続ルート音ベースは step<8 のみ（step>=8 ではウッドベースに置き換える）
+    auPlayChord(ch, AU.nextTime, BGM_CHORD_LEN, AU.step < 8);
+    // パーカッションとウッドベースは9小節目（step 8）から入り、そのまま入り続ける
+    if(AU.step >= 8){
+      auPlayDrums(AU.nextTime);
+      auPlayWoodBass(ch, BGM_CHORDS[(AU.step + 1) % BGM_CHORDS.length], AU.nextTime, AU.step);
+    }
+    // ピアノは13小節目（step 12）＝ドラム／ウッドベースの4小節後から
+    if(AU.step >= 12) auPlayPiano(AU.step, AU.nextTime);
+    // 雨の水滴を小節内にまばらに配置
+    const drops = 1 + Math.floor(Math.random() * 3);
+    for(let i = 0; i < drops; i++){
+      auRainDrop(AU.nextTime + 0.3 + Math.random() * (BGM_CHORD_LEN - 0.6));
+    }
     // ビニールのパチパチをコード内にランダム配置
     const pops = 2 + Math.floor(Math.random() * 4);
     for(let i = 0; i < pops; i++){
@@ -288,7 +304,7 @@ function auSchedule(){
   }
 }
 
-function auPlayChord(ch, t, dur){
+function auPlayChord(ch, t, dur, withSustainBass){
   const ctx = AU.ctx;
   // --- コードパッド：構成音ごとに少しデチューンした三角波×2、ローパス、遅いアタック ---
   const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 850; lp.Q.value = 0.3;
@@ -307,15 +323,18 @@ function auPlayChord(ch, t, dur){
     }
   }
   // --- ベース：ルート音のサイン波、ローパスで柔らかく ---
-  const bo = ctx.createOscillator(); bo.type = "sine"; bo.frequency.value = ch.root;
-  const bf = ctx.createBiquadFilter(); bf.type = "lowpass"; bf.frequency.value = 300;
-  const bg = ctx.createGain(); bg.gain.value = 0;
-  bo.connect(bf); bf.connect(bg); bg.connect(AU.bgmGain);
-  bg.gain.setValueAtTime(0, t);
-  bg.gain.linearRampToValueAtTime(0.30, t + 0.4);
-  bg.gain.setValueAtTime(0.30, t + dur - 0.8);
-  bg.gain.linearRampToValueAtTime(0, t + dur + 0.6);
-  bo.start(t); bo.stop(t + dur + 0.8);
+  // step>=8 ではウッドベースに置き換わるため、持続ベースは鳴らさない
+  if(withSustainBass){
+    const bo = ctx.createOscillator(); bo.type = "sine"; bo.frequency.value = ch.root;
+    const bf = ctx.createBiquadFilter(); bf.type = "lowpass"; bf.frequency.value = 300;
+    const bg = ctx.createGain(); bg.gain.value = 0;
+    bo.connect(bf); bf.connect(bg); bg.connect(AU.bgmGain);
+    bg.gain.setValueAtTime(0, t);
+    bg.gain.linearRampToValueAtTime(0.30, t + 0.4);
+    bg.gain.setValueAtTime(0.30, t + dur - 0.8);
+    bg.gain.linearRampToValueAtTime(0, t + dur + 0.6);
+    bo.start(t); bo.stop(t + dur + 0.8);
+  }
 }
 
 // ビニールノイズ（常時の微かなヒス）：ループ再生＋バンドパス
@@ -405,6 +424,162 @@ function auShaker(t, vol){
   src.connect(hp); hp.connect(g); g.connect(AU.drmGain);
   src.start(t, Math.random() * 1.6, 0.08);
   src.stop(t + 0.09);
+}
+
+
+// ===================== ウッドベース（9小節目から、持続ルート音と置き換え） =====================
+// キックに同期して1拍・3拍にルートを置き、5度／オクターブと次コードへの
+// 経過音（半音アプローチ）を控えめに混ぜるジャズ寄りのパターン。
+// 音は各拍で完結する短めの発音（約0.9秒で減衰）。
+function auPlayWoodBass(ch, nextCh, t0, step){
+  const r = ch.root;
+  const fifth = r * Math.pow(2, 7 / 12);
+  const oct = r * 2;
+  auWoodNote(r, t0 + 0.0, 0.21);
+  if(step % 2 === 0){
+    auWoodNote(r, t0 + 2.0, 0.17);
+    auWoodNote(fifth, t0 + 3.0, 0.13);
+  } else {
+    auWoodNote(fifth, t0 + 2.0, 0.16);
+    auWoodNote(oct, t0 + 3.0, 0.12);
+    // 次コードのルートへの半音アプローチ（経過音）
+    auWoodNote(nextCh.root * Math.pow(2, -1 / 12), t0 + 3.5, 0.11);
+  }
+}
+
+// ウッドベース1音：基本波（サイン）＋弱い2倍音、ローパス500Hz、
+// 速いアタックと約0.9秒の減衰。アタックに極小ノイズを重ねて指弾き感を出す。
+function auWoodNote(freq, t, vol){
+  const ctx = AU.ctx;
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 500; lp.Q.value = 0.3;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+  lp.connect(g); g.connect(AU.bgmGain);
+  const o1 = ctx.createOscillator(); o1.type = "sine"; o1.frequency.value = freq;
+  o1.connect(lp); o1.start(t); o1.stop(t + 1.0);
+  const o2 = ctx.createOscillator(); o2.type = "sine"; o2.frequency.value = freq * 2;
+  const g2 = ctx.createGain(); g2.gain.value = 0.28;
+  o2.connect(g2); g2.connect(lp); o2.start(t); o2.stop(t + 0.55);
+  // 指弾きのアタックノイズ
+  const src = ctx.createBufferSource(); src.buffer = AU.noiseBuf;
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1100; bp.Q.value = 0.8;
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(vol * 0.18, t);
+  ng.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+  src.connect(bp); bp.connect(ng); ng.connect(AU.bgmGain);
+  src.start(t, Math.random() * 1.5, 0.05);
+  src.stop(t + 0.06);
+}
+
+// ===================== ピアノ（13小節目から） =====================
+// コードごとの使用音。[root3, 3rd, 5th, 7th, root4, 3rd(+8va), 5th(+8va)]
+const PIANO_TONES = [
+  [174.61, 220.00, 261.63, 329.63, 349.23, 440.00, 523.25], // Fmaj7: F3 A3 C4 E4 F4 A4 C5
+  [164.81, 196.00, 246.94, 293.66, 329.63, 392.00, 493.88], // Em7 : E3 G3 B3 D4 E4 G4 B4
+  [146.83, 174.61, 220.00, 261.63, 293.66, 349.23, 440.00], // Dm7 : D3 F3 A3 C4 D4 F4 A4
+  [130.81, 164.81, 196.00, 246.94, 261.63, 329.63, 392.00]  // Cmaj7: C3 E3 G3 B3 C4 E4 G4
+];
+// メロディフレーズ（4小節＝1フレーズ、休符多め・ロングトーン中心）。
+// dt＝小節頭からの秒、f＝周波数、d＝長さ（秒）、v＝ベロシティ。
+const PIANO_MELODY_A = [
+  [ { dt: 0.5, f: 440.00, d: 2.2, v: 0.125 }, { dt: 2.0, f: 523.25, d: 1.8, v: 0.105 } ], // Fmaj7: A4 → C5
+  [ { dt: 1.0, f: 493.88, d: 1.6, v: 0.105 }, { dt: 3.0, f: 392.00, d: 1.4, v: 0.095 } ], // Em7 : B4 → G4
+  [ { dt: 0.0, f: 349.23, d: 2.0, v: 0.105 }, { dt: 2.5, f: 440.00, d: 1.6, v: 0.115 } ], // Dm7 : F4 → A4
+  [ { dt: 1.0, f: 392.00, d: 1.4, v: 0.095 }, { dt: 2.5, f: 329.63, d: 2.4, v: 0.105 } ]  // Cmaj7: G4 → E4
+];
+// バリエーション：最終小節の末尾だけ変える
+const PIANO_MELODY_B = [
+  PIANO_MELODY_A[0], PIANO_MELODY_A[1], PIANO_MELODY_A[2],
+  [ { dt: 1.0, f: 493.88, d: 1.4, v: 0.100 }, { dt: 3.0, f: 523.25, d: 1.8, v: 0.110 } ]  // Cmaj7: B4 → C5
+];
+
+function auPlayPiano(step, t0){
+  const ci = step % BGM_CHORDS.length;
+  const tones = PIANO_TONES[ci];
+  // 伴奏：2拍半ばにコードトーンの分散和音を柔らかく
+  auPianoNote(tones[1], t0 + 1.50, 0.052, 0.9);
+  auPianoNote(tones[2], t0 + 1.62, 0.047, 0.9);
+  auPianoNote(tones[3], t0 + 1.74, 0.042, 1.0);
+  // 伴奏：4拍目に柔らかいスタッブ（5th＋オクターブルート）
+  auPianoNote(tones[2], t0 + 3.50, 0.047, 0.7);
+  auPianoNote(tones[4], t0 + 3.50, 0.042, 0.7);
+  // メロディ：4小節1フレーズをループ。2フレーズ目以降は末尾バリエーション
+  const cyc = Math.floor((step - 12) / 4);
+  const phrase = (cyc % 2 === 1) ? PIANO_MELODY_B : PIANO_MELODY_A;
+  for(const n of phrase[ci]) auPianoNote(n.f, t0 + n.dt, n.v, n.d);
+}
+
+// ノイズ交じりの LoFi ピアノ1音：倍音を数本重ね軽くデチューン、ローパス1800Hz、
+// 速い減衰。アタックに小さなノイズ成分。タイミング／音程／ベロシティに弾き手のムラ。
+function auPianoNote(freq, t, vol, dur){
+  const ctx = AU.ctx;
+  const jt = t + (Math.random() * 0.03 - 0.015);
+  const vv = vol * (0.88 + Math.random() * 0.24);
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1800;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, jt);
+  g.gain.linearRampToValueAtTime(vv, jt + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.001, jt + dur);
+  lp.connect(g); g.connect(AU.bgmGain);
+  const partials = [ [1, 1.00], [2, 0.45], [3, 0.20], [4, 0.08] ];
+  for(const [m, a] of partials){
+    const o = ctx.createOscillator(); o.type = "sine";
+    o.frequency.value = freq * m;
+    o.detune.value = (Math.random() * 8 - 4) + (m - 1) * 2;
+    const og = ctx.createGain(); og.gain.value = a;
+    o.connect(og); og.connect(lp);
+    o.start(jt); o.stop(jt + dur + 0.1);
+  }
+  // アタックの小さなノイズ成分
+  const src = ctx.createBufferSource(); src.buffer = AU.noiseBuf;
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2600; bp.Q.value = 0.7;
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(vv * 0.22, jt);
+  ng.gain.exponentialRampToValueAtTime(0.001, jt + 0.025);
+  src.connect(bp); bp.connect(ng); ng.connect(AU.bgmGain);
+  src.start(jt, Math.random() * 1.5, 0.04);
+  src.stop(jt + 0.05);
+}
+
+// ===================== 雨音アンビエント（開始から常時） =====================
+// 基底層：専用バッファ（6秒）のノイズをローパス620Hzした「サーッ」という音を
+// ループ再生し、音量のうねりを周期3.2秒の LFO で付ける
+// （作中のモチーフ「雨の3.2秒ループ」への目配せ）。バスは rainGain（0.04）。
+function auStartRain(){
+  const ctx = AU.ctx;
+  const len = ctx.sampleRate * 6;
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for(let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  src.playbackRate.value = 0.85;
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 620; lp.Q.value = 0.2;
+  const swell = ctx.createGain(); swell.gain.value = 0.62;
+  src.connect(lp); lp.connect(swell); swell.connect(AU.rainGain);
+  src.start();
+  // うねりの LFO（周期3.2秒）
+  const lfo = ctx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 1 / 3.2;
+  const lfoDepth = ctx.createGain(); lfoDepth.gain.value = 0.24;
+  lfo.connect(lfoDepth); lfoDepth.connect(swell.gain);
+  lfo.start();
+}
+
+// 雨の水滴：ごくまばらな短いティック（バンドパス付きノイズ）
+function auRainDrop(t){
+  const ctx = AU.ctx;
+  const src = ctx.createBufferSource(); src.buffer = AU.noiseBuf;
+  src.playbackRate.value = 1.1 + Math.random() * 0.5;
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass";
+  bp.frequency.value = 1300 + Math.random() * 1100; bp.Q.value = 6;
+  const g = ctx.createGain();
+  const d = 0.03 + Math.random() * 0.03;
+  g.gain.setValueAtTime(0.10 + Math.random() * 0.10, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + d);
+  src.connect(bp); bp.connect(g); g.connect(AU.rainGain);
+  src.start(t, Math.random() * 1.6, d + 0.03);
+  src.stop(t + d + 0.04);
 }
 
 // タイピングSE：タイプライターの刻みに同期する短い打鍵クリック。
