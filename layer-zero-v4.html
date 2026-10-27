@@ -260,7 +260,7 @@ function auInit(){
   AU.bgmGain = ctx.createGain(); AU.bgmGain.gain.value = 0.15; AU.bgmGain.connect(AU.master);
   AU.seGain  = ctx.createGain(); AU.seGain.gain.value  = 0.40; AU.seGain.connect(AU.master);
   AU.drmGain = ctx.createGain(); AU.drmGain.gain.value = 0.50; AU.drmGain.connect(AU.master);
-  AU.rainGain = ctx.createGain(); AU.rainGain.gain.value = 0.16; AU.rainGain.connect(AU.master);
+  AU.rainGain = ctx.createGain(); AU.rainGain.gain.value = 0.08; AU.rainGain.connect(AU.master);
   // ビニールノイズ／SE 共用のホワイトノイズバッファ（2秒）
   const len = ctx.sampleRate * 2;
   AU.noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -546,7 +546,7 @@ function auPianoNote(freq, t, vol, dur){
 // ===================== 雨音アンビエント（開始から常時） =====================
 // 基底層：専用バッファ（6秒）のノイズをローパス620Hzした「サーッ」という音を
 // ループ再生し、音量のうねりを周期3.2秒の LFO で付ける
-// （作中のモチーフ「雨の3.2秒ループ」への目配せ）。バスは rainGain（0.16）。
+// （作中のモチーフ「雨の3.2秒ループ」への目配せ）。バスは rainGain（0.08）。
 function auStartRain(){
   const ctx = AU.ctx;
   const len = ctx.sampleRate * 6;
