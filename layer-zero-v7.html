@@ -847,7 +847,7 @@ function setScene(name){ $scene.src = IMG[name]; $scene.dataset.scene = name; }
     eggBusy = true;
     const prev = $scene.src;
     $scene.src = IMG.glitch;
-    setTimeout(()=>{ if($scene.dataset.scene === "room") $scene.src = prev; eggBusy = false; }, 175);
+    setTimeout(()=>{ if($scene.dataset.scene === "room") $scene.src = prev; eggBusy = false; }, 88);
   }
   const stageEl = document.getElementById("stage");
   if(stageEl){
