@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAYER ZERO ―目覚めるか、眠るか― | Km3</title>
+<meta name="description" content="テキストコマンド・アドベンチャー『LAYER ZERO』公式トップページ。最新版から過去バージョンまで、遊びたいバージョンを選んでプレイできます。">
+<meta property="og:title" content="LAYER ZERO ―目覚めるか、眠るか―">
+<meta property="og:description" content="世界の仮想現実性に気づいたハッカーの物語。テキストコマンド・アドベンチャー。バージョンを選んでプレイ。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://masacheee.github.io/layer-zero/">
+<meta property="og:image" content="https://masacheee.github.io/layer-zero/ogp.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-J7KFJS5W9S"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-J7KFJS5W9S');
+</script>
+<style>
+  :root{
+    --green:#3dff6e;
+    --green-dim:#1d9e46;
+    --green-faint:#0d5c28;
+    --bg:#020604;
+    --panel:#04140a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{background:var(--bg);}
+  body{
+    background:var(--bg);
+    color:var(--green);
+    font-family:"Courier New", ui-monospace, Menlo, Consolas, monospace;
+    min-height:100vh;
+    padding:24px 16px 48px;
+    position:relative;
+    overflow-x:hidden;
+  }
+  /* CRT scanlines + halftone dots */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px);
+    pointer-events:none;
+    z-index:5;
+  }
+  body::after{
+    content:"";
+    position:fixed; inset:0;
+    background-image:radial-gradient(rgba(61,255,110,.055) 1px, transparent 1.4px);
+    background-size:5px 5px;
+    pointer-events:none;
+    z-index:4;
+  }
+  .wrap{max-width:760px;margin:0 auto;position:relative;z-index:6;}
+  header{text-align:center;padding:28px 0 8px;}
+  .sys{font-size:11px;letter-spacing:.35em;color:var(--green-dim);text-transform:uppercase;}
+  h1{
+    font-size:clamp(40px,9vw,72px);
+    letter-spacing:.12em;
+    margin:14px 0 4px;
+    text-shadow:0 0 6px rgba(61,255,110,.8),0 0 24px rgba(61,255,110,.45),0 0 60px rgba(61,255,110,.25);
+    font-weight:700;
+  }
+  .subtitle{font-size:clamp(13px,3.4vw,17px);letter-spacing:.3em;color:var(--green);}
+  .tagline{
+    margin:18px auto 0;max-width:560px;
+    font-size:13px;line-height:1.9;color:#8df5a9;
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
+  }
+  .prompt-line{margin-top:20px;font-size:14px;color:var(--green-dim);}
+  .cursor{display:inline-block;width:.62em;height:1.05em;background:var(--green);vertical-align:-0.15em;margin-left:4px;animation:blink 1.05s steps(1) infinite;box-shadow:0 0 8px rgba(61,255,110,.8);}
+  @keyframes blink{0%,55%{opacity:1;}56%,100%{opacity:0;}}
+  .latest{
+    margin:34px 0 10px;
+    border:1px solid var(--green-dim);
+    background:linear-gradient(180deg, rgba(61,255,110,.10), rgba(61,255,110,.03));
+    box-shadow:0 0 0 1px rgba(0,0,0,.6), 0 0 28px rgba(61,255,110,.12) inset;
+    padding:20px 20px 22px;
+  }
+  .badge{
+    display:inline-block;font-size:11px;letter-spacing:.25em;
+    border:1px solid var(--green);padding:2px 10px;margin-bottom:10px;
+    color:#04140a;background:var(--green);font-weight:700;
+  }
+  .latest h2, .ver h3{letter-spacing:.18em;}
+  .latest h2{font-size:clamp(22px,5.4vw,30px);text-shadow:0 0 12px rgba(61,255,110,.55);}
+  .desc{font-size:13px;line-height:1.85;color:#8df5a9;margin-top:8px;font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;}
+  .meta{font-size:11px;color:var(--green-dim);letter-spacing:.12em;margin-top:8px;}
+  a.play{
+    display:inline-block;margin-top:16px;
+    color:var(--green);text-decoration:none;
+    border:1px solid var(--green);
+    padding:10px 22px;font-size:15px;letter-spacing:.2em;
+    transition:all .15s ease;
+  }
+  a.play:hover{background:var(--green);color:#04140a;box-shadow:0 0 18px rgba(61,255,110,.55);}
+  .latest a.play{font-size:17px;padding:12px 30px;}
+  .list-title{margin:36px 0 4px;font-size:13px;letter-spacing:.3em;color:var(--green-dim);}
+  .ver{
+    border:1px solid var(--green-faint);
+    background:var(--panel);
+    padding:16px 18px;margin-top:12px;
+    display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
+  }
+  .ver h3{font-size:19px;min-width:150px;text-shadow:0 0 8px rgba(61,255,110,.35);}
+  .ver .desc{flex:1 1 260px;margin-top:0;}
+  .ver .meta{width:100%;margin-top:2px;}
+  .ver a.play{margin-top:4px;padding:7px 16px;font-size:13px;}
+  .note-box{
+    margin-top:34px;border:1px dashed var(--green-faint);padding:14px 18px;
+    font-size:12px;line-height:1.9;color:#6fdc8f;
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
+  }
+  footer{margin-top:40px;text-align:center;font-size:12px;color:var(--green-dim);letter-spacing:.15em;line-height:2.1;}
+  footer a{color:var(--green);text-decoration:none;border-bottom:1px dotted var(--green-dim);}
+  footer a:hover{text-shadow:0 0 8px rgba(61,255,110,.7);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="sys">Km3 presents // text command adventure</div>
+    <h1>LAYER ZERO</h1>
+    <div class="subtitle">― 目覚めるか、眠るか ―</div>
+    <p class="tagline">世界の仮想現実性に気づいてしまったハッカーの物語。<br>コマンドを打ち込み、仲間たちの心を反転させ、最後の選択へ。</p>
+    <div class="prompt-line">&gt; select version<span class="cursor"></span></div>
+  </header>
+
+  <section class="latest">
+    <span class="badge">LATEST</span>
+    <h2>LAYER ZERO v7</h2>
+    <p class="desc">最新版。引き出しと連動するイラストと、どこかに仕掛けたイースターエッグを追加。5言語対応（日本語／English／한국어／繁體中文／简体中文）。迷ったらこれ。</p>
+    <p class="meta">RELEASE: 2026-10-29 / UPDATE: 2026-10-30</p>
+    <a class="play ver-link" data-ver="v7" href="layer-zero-v7.html">&gt; PLAY v7</a>
+  </section>
+
+  <div class="list-title">// PAST VERSIONS ― 過去バージョンもそのまま遊べます</div>
+
+  <section class="ver">
+    <h3>v6</h3>
+    <p class="desc">5言語対応版（日本語／English／한국어／繁體中文／简体中文）。</p>
+    <p class="meta">RELEASE: 2026-10-29</p>
+    <a class="play ver-link" data-ver="v6" href="layer-zero-v6.html">&gt; PLAY</a>
+  </section>
+
+  <section class="ver">
+    <h3>v5</h3>
+    <p class="desc">英語対応を追加した日英2言語版。</p>
+    <p class="meta">RELEASE: 2026-10-28</p>
+    <a class="play ver-link" data-ver="v5" href="layer-zero-v5.html">&gt; PLAY</a>
+  </section>
+
+  <section class="ver">
+    <h3>v4</h3>
+    <p class="desc">サウンド追加版。LoFi BGM、雨音、タイプ音が入った。</p>
+    <p class="meta">RELEASE: 2026-10-27</p>
+    <a class="play ver-link" data-ver="v4" href="layer-zero-v4.html">&gt; PLAY</a>
+  </section>
+
+  <section class="ver">
+    <h3>v3</h3>
+    <p class="desc">スマートフォン対応と、ゆっくりしたタイプライター表示の調整版。</p>
+    <p class="meta">RELEASE: 2026-10-26</p>
+    <a class="play ver-link" data-ver="v3" href="layer-zero-v3.html">&gt; PLAY</a>
+  </section>
+
+  <section class="ver">
+    <h3>v2</h3>
+    <p class="desc">「メーター編」。WAKE／SLEEPメーターと連鎖反転、真エンディング2種を実装した本編版。</p>
+    <p class="meta">RELEASE: 2026-10-25</p>
+    <a class="play ver-link" data-ver="v2" href="layer-zero-v2.html">&gt; PLAY</a>
+  </section>
+
+  <section class="ver">
+    <h3>v1</h3>
+    <p class="desc">「覚醒編」。すべての始まりのプロトタイプ。</p>
+    <p class="meta">RELEASE: 2026-10-24</p>
+    <a class="play ver-link" data-ver="v1" href="layer-zero.html">&gt; PLAY</a>
+  </section>
+
+  <div class="note-box">
+    ※ セーブデータはバージョンごとに別々です。過去バージョンの続きは、そのバージョンで開いてください。<br>
+    ※ 開発の裏側は note の開発日誌で連載中です。
+  </div>
+
+  <footer>
+    <div>© Km3</div>
+    <div>
+      <a href="https://note.com/m2019" target="_blank" rel="noopener">開発日誌（note）</a>
+      &nbsp;//&nbsp;
+      <a href="https://x.com/Masacheeee" target="_blank" rel="noopener">X: @Masacheeee</a>
+    </div>
+    <div>&gt; thank you for playing<span class="cursor"></span></div>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  // 流入元タグ (?src=) を受け取り、各バージョンのリンクへ引き継ぐ
+  var params = new URLSearchParams(location.search);
+  var src = params.get('src') || '';
+  try {
+    if (src) { localStorage.setItem('lzTopSrc', src); }
+    else { src = localStorage.getItem('lzTopSrc') || ''; }
+  } catch (e) {}
+  if (typeof gtag === 'function') {
+    gtag('event', 'top_page_view', { src: src || '(direct)' });
+  }
+  document.querySelectorAll('a.ver-link').forEach(function(a){
+    if (src) {
+      var sep = a.getAttribute('href').indexOf('?') >= 0 ? '&' : '?';
+      a.setAttribute('href', a.getAttribute('href') + sep + 'src=' + encodeURIComponent(src));
+    }
+    a.addEventListener('click', function(){
+      if (typeof gtag === 'function') {
+        gtag('event', 'version_select', { version: a.getAttribute('data-ver'), src: src || '(direct)' });
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
