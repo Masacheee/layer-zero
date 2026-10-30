@@ -167,6 +167,30 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--serif);ove
 // ===================== 多言語対応（v7） =====================
 let LANG = "ja";
 try{ const _sl = localStorage.getItem("lz7lang"); if(["ja","en","ko","zhtw","zhcn"].indexOf(_sl) >= 0) LANG = _sl; }catch(e){}
+/* v7 analytics (GA4): 流入元 src の記録と行動イベント送信 */
+const GA_ID = "G-J7KFJS5W9S";
+let LZ_SRC = "(direct)";
+try{
+  const _q = new URLSearchParams(location.search).get("src");
+  if(_q){ LZ_SRC = _q; localStorage.setItem("lz7src", _q); }
+  else { const _sv = localStorage.getItem("lz7src"); if(_sv) LZ_SRC = _sv; }
+}catch(e){}
+window.dataLayer = window.dataLayer || [];
+function gtag(){ window.dataLayer.push(arguments); }
+try{
+  const _gs = document.createElement("script");
+  _gs.async = true; _gs.src = "https://www.googletagmanager.com/gtag/js?id=" + GA_ID;
+  (document.head || document.documentElement).appendChild(_gs);
+}catch(e){}
+gtag("js", new Date());
+gtag("config", GA_ID);
+function lzEvent(name, params){
+  try{
+    const p = params || {}; p.src = LZ_SRC; p.game_version = "v7";
+    gtag("event", name, p);
+  }catch(e){}
+}
+
 const STR_EN = {
 "\n\n言葉で動かせる心と、事実でしか動かない心がある。残り時間を、間違えないように。": "\n\nSome hearts are moved by words; others move only for facts. Don't waste the time you have left.",
 "\n・": "\n- ",
@@ -849,6 +873,7 @@ function setScene(name){ $scene.src = IMG[name]; $scene.dataset.scene = name; }
     eggBusy = true;
     const prev = $scene.src;
     $scene.src = IMG.glitch;
+    lzEvent("easter_egg", { scene: cur });
     setTimeout(()=>{ if($scene.dataset.scene === cur) $scene.src = prev; eggBusy = false; }, 88);
   }
   const stageEl = document.getElementById("stage");
@@ -1164,7 +1189,7 @@ function prologueCmd(s){
     return;
   }
   if(has(s, ["引き出し","机"]) && has(s, ["開","見","調べ"])){
-    out(TXT.drawerOpen); S.drawerOpen = true; setScene("drawer"); return;
+    out(TXT.drawerOpen); S.drawerOpen = true; setScene("drawer"); lzEvent("drawer_open", {}); return;
   }
   if(has(s, ["usb","メモリ"]) && has(s, ["取","拾"])){
     if(S.drawerOpen){ out(TXT.usbTake); S.hasUSB = true; }
@@ -1206,6 +1231,7 @@ function prologueHint(){
 }
 function startMain(){
   S.phase = "main"; S.day = 1; S.slot = 0; S.loc = "square";
+  lzEvent("prologue_clear", {});
   setScene("room");
   out(TXT.transition, "sys");
   renderMeters();
@@ -1554,7 +1580,7 @@ function finaleCmd(s, raw){
   renderMeters();
 }
 function endTrueWake(){
-  S.phase = "end"; S.ended = "true_wake";
+  S.phase = "end"; S.ended = "true_wake"; lzEvent("ending_reached", { ending: "true_wake" });
   out(t(`【真エンド1 ― 全員覚醒】
 
 コマンドが、世界に行き渡った。
@@ -1579,7 +1605,7 @@ NOAHは家族の記録を最後まで見つめ、小さく言った。「……�
   renderMeters();
 }
 function endTrueSleep(){
-  S.phase = "end"; S.ended = "true_sleep";
+  S.phase = "end"; S.ended = "true_sleep"; lzEvent("ending_reached", { ending: "true_sleep" });
   out(t(`【真エンド2 ― 全員安眠】
 
 コマンドが、世界を静かに包んだ。
@@ -1601,7 +1627,7 @@ NOAHは家族の食卓の記録をそっと閉じ、「……あいつらは、�
   renderMeters();
 }
 function endUnfinished(){
-  S.phase = "end"; S.ended = "unfinished";
+  S.phase = "end"; S.ended = "unfinished"; lzEvent("ending_reached", { ending: "unfinished" });
   out(t(`【エンディング ― バラバラのまま】
 
 世界は、どちらにも進まなかった。
@@ -1938,6 +1964,7 @@ function startGame(){
   auInit();
   S = S0(1);
   setScene("room");
+  lzEvent("game_start", { lang: LANG });
   out(TXT.intro);
   renderMeters();
   if(window.matchMedia && window.matchMedia("(pointer:fine)").matches) $cmd.focus();
