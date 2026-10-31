@@ -428,11 +428,12 @@ const $scene = document.getElementById("scene");
 // ===================== 出力・表示 =====================
 const typeQueue = [];
 let typeTimer = null, typeDiv = null, typeFull = "", typePos = 0;
-function out(text, cls){ typeQueue.push({ text: String(text), cls: cls || "" }); pumpType(); }
+function out(text, cls, act){ typeQueue.push({ text: String(text), cls: cls || "", act: act || null }); pumpType(); }
 function pumpType(){
   if(typeTimer !== null) return;
   const item = typeQueue.shift();
   if(!item) return;
+  if(item.act) item.act();
   const d = document.createElement("div");
   if(item.cls) d.className = item.cls;
   $log.appendChild(d);
@@ -451,6 +452,7 @@ function flushType(){
   if(typeDiv){ typeDiv.textContent = typeFull; typeDiv = null; }
   while(typeQueue.length){
     const item = typeQueue.shift();
+    if(item.act) item.act();
     const d = document.createElement("div");
     if(item.cls) d.className = item.cls;
     d.textContent = item.text;
@@ -2107,13 +2109,14 @@ function escTick(){
 function startChapter1(){
   escDisarm();
   S.phase = "ch1";
-  S.ch1 = { stage:"explore", escStep:0, fails:0, seenSign:false, seenTerminal:false, seenLook:false, noahDone:false, phoneTaken:false, sceneBase:"station" };
+  S.ch1 = { stage:"explore", escStep:0, fails:0, seenSign:false, seenTerminal:false, seenLook:false, noahDone:false, phoneTaken:false, sceneBase:"room" };
   S.risk = 20;
   lzEvent("prologue_clear", {});
   lzEvent("chapter_start", { chapter: 1 });
-  setScene("station");
   out(TXT.ch1Open, "sys");
-  out(TXT.ch1Station);
+  // 画像は「レンは雨の中を走った。」（ch1Station）の表示が始まるタイミングで駅へ切り替える。
+  // ch1Open の間（まだ自室にいる場面）は部屋の画像のままにする。
+  out(TXT.ch1Station, "", function(){ S.ch1.sceneBase = "station"; setScene(ch1SceneName()); });
   renderMeters();
 }
 function ch1Cmd(s, raw){
