@@ -1971,27 +1971,27 @@ function handleCommand(raw){
 const AP = { state:"off", mode:null, queue:[], timer:null, steps:0 };
 const AP_PROLOGUE = ["引き出しを開ける","端末を調べる","メールを読む","窓を見る","USBメモリを取る","USBメモリを挿す","ファイルを読む","WAKE"];
 const AP_SCRIPTS = {
-  // WAKE：NOAHの鍵（家族の記録→真実の言葉）とサチの鍵（娘の記録）をこなし、
-  // レイヤー内で rain.stop と対話でサチを引き上げ、全員WAKEで統一する。
-  // ミオの鍵（ダイブ）は彼女をSLEEP側へ大きく倒すため、WAKEルートではあえて踏まない。
+  // WAKE（v8）：序章→第1章「追跡」をクリーンに突破する。
+  // 探索（案内板→端末）→逃走（1,1）→幕間は NOAH を上げる「1」→逃走（3,1）
+  // →非常電話→WAKE で章クリア（phase=ch1end）。
   wake: AP_PROLOGUE.concat([
-    "観測室へ行く","NOAHと話す","1","休む","休む",
-    "家族の記録を読む","家族の記録を見せる","1","娘の記録を読む","レイヤー入口へ行く",
-    "ダイブする","娘の記録を見せる","> rain.stop","サチと話す","1",
-    "WAKE"
+    "案内板を調べる","端末を調べる",
+    "1","1","1","3","1",
+    "受話器を取る","WAKE"
   ]),
-  // SLEEP：ミオの鍵（ダイブで温かい食卓を知る）、NOAHの鍵（記録→守る言葉）、
-  // サチの鍵（娘の時間の真実を知った上で、それでも眠る）をこなし、全員SLEEPで統一する。
-  sleep: AP_PROLOGUE.concat([
-    "発電所へ行く","ミオと話す","3","観測室へ行く","休む",
-    "家族の記録を読む","家族の記録を見せる","2","娘の記録を読む","レイヤー入口へ行く",
-    "ダイブする","娘の記録を見せる","サチと話す","2","休む",
-    "SLEEP"
-  ]),
-  // その他：統一を目指さず日々をやり過ごし、未統一のまま最終選択→「やめる」で完結させる。
+  // SLEEP（v8）：序章の選択で SLEEP を試みるが NOAH に止められる（現行仕様）。
+  // そのまま WAKE して第1章へ進み、幕間は「2」（NOAH -1）を選んで章クリア。
+  // SLEEP エンディングそのものは本編（終章）完成後にこのルートへ差し替える。
+  sleep: ["引き出しを開ける","端末を調べる","メールを読む","窓を見る","USBメモリを取る","USBメモリを挿す","ファイルを読む","SLEEP","WAKE",
+    "案内板を調べる","端末を調べる",
+    "1","1","2","3","1",
+    "受話器を取る","WAKE"],
+  // その他（v8）：クリーン突破を目指さない通常進行。
+  // 逃走で2回失敗して NOAH の救済を受け、幕間は「2」（NOAH -1）を選んで第1章クリア。
   other: AP_PROLOGUE.concat([
-    "休む","休む","休む","休む","休む","休む","休む","休む","休む","休む","休む","休む",
-    "WAKE","やめる"
+    "案内板を調べる","端末を調べる",
+    "2","1","1","2","1","3","1",
+    "受話器を取る","WAKE"
   ])
 };
 function apBadgeShow(label){
@@ -2023,15 +2023,15 @@ function apAnswer(s){
 }
 function apTick(){
   if(AP.state !== "run"){ stopAutoplay(); return; }
-  if(S.phase === "end" || AP.queue.length === 0 || AP.steps >= 120){ stopAutoplay(); return; }
+  if(S.phase === "end" || S.phase === "ch1end" || AP.queue.length === 0 || AP.steps >= 120){ stopAutoplay(); return; }
   const cmd = AP.queue.shift();
   AP.steps++;
   submitCmd(cmd, true);
-  if(S.phase === "end") stopAutoplay();
+  if(S.phase === "end" || S.phase === "ch1end") stopAutoplay();
 }
 function stopAutoplay(msg){
   if(AP.timer){ clearInterval(AP.timer); AP.timer = null; }
-  const finished = AP.state === "run" && S.phase === "end";
+  const finished = AP.state === "run" && (S.phase === "end" || S.phase === "ch1end");
   AP.state = "off"; AP.queue = [];
   apBadgeHide();
   if(finished) out(t("【自動再生が終了しました】"), "sys");
