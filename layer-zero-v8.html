@@ -2278,7 +2278,8 @@ function ch1Clear(){
   escDisarm();
   S.phase = "ch1end";
   lzEvent("chapter_clear", { chapter: 1 });
-  out(TXT.ch1Next);
+  // 「受話器を置いた」本文の表示開始に合わせ、受話器が掛かった絵へ戻す
+  out(TXT.ch1Next, "", function(){ S.ch1.sceneBase = "phone"; setScene(ch1SceneName()); });
   out(TXT.ch1ClearScreen, "sys");
   renderMeters();
 }
