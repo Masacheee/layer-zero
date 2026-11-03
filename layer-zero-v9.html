@@ -2035,6 +2035,7 @@ function translateZhCmd(s){
   return s;
 }
 function handleCommand(raw){
+  if(LZ_REBOOTING) return;
   let s = normalize(raw);
   // 自動再生（プレイテスト用裏技）：行き先の回答待ちなら最優先で処理する
   if(AP.state === "ask"){ apAnswer(s); return; }
@@ -2246,25 +2247,32 @@ function wakeFlash(){
   el.classList.add("on");
   setTimeout(() => { if(el.classList) el.classList.remove("on"); }, 850);
 }
+let LZ_REBOOTING = false;
 function lzRestart(kind){
   escDisarm();
-  const bf = document.getElementById("bootFade"); if(bf){ bf.style.transition = "opacity .18s ease"; bf.style.opacity = "1"; setTimeout(()=>{ bf.style.transition = "opacity .7s ease"; bf.style.opacity = "0"; }, 300); }
+  LZ_REBOOTING = true;
   let n = 1;
   try { n = (parseInt(localStorage.getItem("lz9loop") || "0", 10) || 0) + 1; localStorage.setItem("lz9loop", String(n)); } catch(e) {}
   lzEvent("reboot", { kind: kind, count: n });
-  setTimeout(()=>{
-    if(typeTimer !== null){ clearInterval(typeTimer); typeTimer = null; }
-    typeQueue.length = 0; typeDiv = null;
-    $log.innerHTML = "";
-    S = S0(1);
-    setScene("room");
-    lzRainApply();
-    if(kind === "sleep") out(TXT.sleepLoop); else out(TXT.rebootDetect, "warn");
-    out("―― REBOOT #" + n + " ――", "sys");
-    out(TXT.intro);
-    renderMeters();
-    renderChips();
-  }, 280);
+  if(kind === "sleep") out(TXT.sleepLoop); else out(TXT.rebootDetect, "warn");
+  out("", "sys", ()=>{
+    const bf = document.getElementById("bootFade");
+    if(bf){ bf.style.transition = "opacity .6s ease"; bf.style.opacity = "1"; }
+    setTimeout(()=>{
+      if(typeTimer !== null){ clearInterval(typeTimer); typeTimer = null; }
+      typeQueue.length = 0; typeDiv = null;
+      $log.innerHTML = "";
+      S = S0(1);
+      setScene("room");
+      lzRainApply();
+      out("―― REBOOT #" + n + " ――", "sys");
+      out(TXT.intro);
+      renderMeters();
+      renderChips();
+      LZ_REBOOTING = false;
+      if(bf){ bf.style.transition = "opacity .7s ease"; bf.style.opacity = "0"; }
+    }, 700);
+  });
 }
 function startChapter1(){
   escDisarm();
