@@ -2251,14 +2251,20 @@ function lzRestart(kind){
   const bf = document.getElementById("bootFade"); if(bf){ bf.style.transition = "opacity .18s ease"; bf.style.opacity = "1"; setTimeout(()=>{ bf.style.transition = "opacity .7s ease"; bf.style.opacity = "0"; }, 300); }
   let n = 1;
   try { n = (parseInt(localStorage.getItem("lz9loop") || "0", 10) || 0) + 1; localStorage.setItem("lz9loop", String(n)); } catch(e) {}
-  if(kind === "sleep") out(TXT.sleepLoop); else out(TXT.rebootDetect, "warn");
   lzEvent("reboot", { kind: kind, count: n });
-  S = S0(1);
-  setScene("room");
-  lzRainApply();
-  out("―― REBOOT #" + n + " ――", "sys");
-  out(TXT.intro);
-  renderMeters();
+  setTimeout(()=>{
+    if(typeTimer !== null){ clearInterval(typeTimer); typeTimer = null; }
+    typeQueue.length = 0; typeDiv = null;
+    $log.innerHTML = "";
+    S = S0(1);
+    setScene("room");
+    lzRainApply();
+    if(kind === "sleep") out(TXT.sleepLoop); else out(TXT.rebootDetect, "warn");
+    out("―― REBOOT #" + n + " ――", "sys");
+    out(TXT.intro);
+    renderMeters();
+    renderChips();
+  }, 280);
 }
 function startChapter1(){
   escDisarm();
