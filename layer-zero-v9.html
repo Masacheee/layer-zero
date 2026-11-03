@@ -162,7 +162,7 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--serif);ove
 <div class="sideHead" id="shInv">― もちもの ―</div>
 <ul id="invList"><li>（なし）</li></ul>
 
-<div class="sideNote" id="sideNote">■が多いほど、その方向への傾きが強い。明るい緑＝ WAKE（目覚め）側、淡い緑＝ SLEEP（眠り）側。資源の正確な量は「持ち物」で確認できます。</div>
+
 <div class="sideHead" id="shSnd">― サウンド ―</div>
 <button id="sndBtn" type="button">♪ サウンド：ON</button>
 </aside>
@@ -975,7 +975,6 @@ function renderMeters(){
   const inMain = S.phase !== "prologue";
   const tiltKnown = inMain || !!S.logRead;
   document.getElementById("shTilt").style.display = tiltKnown ? "" : "none";
-  document.getElementById("sideNote").style.display = tiltKnown ? "" : "none";
   document.getElementById("rowNoah").style.display = (tiltKnown && (inMain || S.mailRead)) ? "" : "none";
   document.getElementById("rowMio").style.display = (tiltKnown && inMain) ? "" : "none";
   document.getElementById("rowSachi").style.display = (tiltKnown && inMain) ? "" : "none";
