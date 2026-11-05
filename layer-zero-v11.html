@@ -2519,7 +2519,7 @@ document.getElementById("startBtn").addEventListener("click", ()=>{
   bf.style.opacity = "1";
   setTimeout(()=>{ startGame(); bf.style.opacity = "0"; }, 640);
 });
-document.getElementById("send").addEventListener("click", ()=>{ submitCmd($cmd.value); });
+document.getElementById("send").addEventListener("click", ()=>{ if(AP.state !== "off" && !$cmd.value.trim()){ stopAutoplay(t("手動入力があったため、自動再生を中断しました。")); return; } submitCmd($cmd.value); });
 $cmd.addEventListener("keydown", (e)=>{ if(e.key === "Enter") submitCmd($cmd.value); });
 renderMeters();
 setTimeout(()=>{ const bf = document.getElementById("bootFade"); if(bf) bf.style.opacity = "0"; }, 60);
